@@ -1,13 +1,21 @@
-# Stage 1: Build source code
+# Stage 1: Install dependencies
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Stage 2: Build source code
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-COPY node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# Stage 2: Runner environment
+# Stage 3: Runner environment
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -31,3 +39,4 @@ USER nextjs
 EXPOSE 3003
 
 CMD ["node", "server.js"]
+

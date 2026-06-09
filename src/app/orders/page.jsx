@@ -79,8 +79,8 @@ export default function OrdersPage() {
           unit_price: orderId === 1045 ? '999.99' : '1399.99',
           subtotal: orderId === 1045 ? '999.99' : '1399.99',
           product_name: orderId === 1045 ? 'iPhone 15 Pro' : 'iPhone 17 Pro Max (Pre-order)',
-          image_url: orderId === 1045 
-            ? 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=150' 
+          image_url: orderId === 1045
+            ? 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=150'
             : 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&q=80&w=150'
         }
       ];
@@ -156,7 +156,7 @@ export default function OrdersPage() {
             const canCancel = isPending || isPaid;
 
             return (
-              <div key={order.id} className="glass-panel" style={styles.orderCard}>
+              <div key={order.id} className="glass-card hover-border" style={styles.orderCard}>
                 {/* Header info */}
                 <div style={styles.orderHeader}>
                   <div style={styles.headerInfoGroup}>
@@ -176,7 +176,7 @@ export default function OrdersPage() {
 
                 <div style={styles.actionsBar}>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
+                    <button
                       onClick={() => toggleExpandOrder(order.id)}
                       className="btn btn-secondary btn-sm"
                       style={styles.actionBtn}
@@ -187,7 +187,7 @@ export default function OrdersPage() {
                     </button>
 
                     {canCancel && (
-                      <button 
+                      <button
                         onClick={() => handleCancelOrder(order.id)}
                         className="btn btn-danger btn-sm"
                         style={styles.actionBtn}
@@ -294,6 +294,9 @@ const styles = {
   orderCard: {
     borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
+    border: '1px solid var(--border-color)',
+    background: 'var(--bg-card-glass)',
+    transition: 'all var(--transition-normal)',
   },
   orderHeader: {
     padding: '1.5rem',
@@ -303,7 +306,7 @@ const styles = {
     flexWrap: 'wrap',
     gap: '1rem',
     borderBottom: '1px solid var(--border-color)',
-    background: 'rgba(15, 23, 42, 0.4)',
+    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(6, 182, 212, 0.04))',
   },
   headerInfoGroup: {
     display: 'flex',
@@ -313,6 +316,9 @@ const styles = {
   orderId: {
     fontSize: '1.15rem',
     fontWeight: 700,
+    background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
   },
   orderDate: {
     fontSize: '0.8rem',
@@ -326,6 +332,7 @@ const styles = {
   amount: {
     fontSize: '1.25rem',
     fontWeight: 800,
+    color: 'var(--text-main)',
   },
   actionsBar: {
     padding: '1rem 1.5rem',
@@ -334,7 +341,7 @@ const styles = {
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: '1rem',
-    background: 'rgba(15, 23, 42, 0.2)',
+    background: 'rgba(255, 255, 255, 0.01)',
   },
   actionBtn: {
     padding: '0.4rem 0.75rem',
@@ -347,7 +354,7 @@ const styles = {
   detailsSection: {
     borderTop: '1px solid var(--border-color)',
     padding: '1.5rem',
-    background: 'rgba(4, 6, 10, 0.3)',
+    background: 'rgba(0, 0, 0, 0.02)',
   },
   detailLoader: {
     display: 'flex',

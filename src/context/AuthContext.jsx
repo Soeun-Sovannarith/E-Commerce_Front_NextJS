@@ -24,11 +24,21 @@ export function AuthProvider({ children }) {
     const savedAdminToken = localStorage.getItem('phone_store_admin_token');
 
     if (savedToken && savedUser) {
-      setUser(JSON.parse(savedUser));
-      setToken(savedToken);
-      // Clean up hybrid session if both exist
-      localStorage.removeItem('phone_store_admin');
-      localStorage.removeItem('phone_store_admin_token');
+      const parsedUser = JSON.parse(savedUser);
+      if (parsedUser && parsedUser.role === 'admin') {
+        setAdmin(parsedUser);
+        setAdminToken(savedToken);
+        localStorage.setItem('phone_store_admin', savedUser);
+        localStorage.setItem('phone_store_admin_token', savedToken);
+        localStorage.removeItem('phone_store_user');
+        localStorage.removeItem('phone_store_token');
+      } else {
+        setUser(parsedUser);
+        setToken(savedToken);
+        // Clean up hybrid session if both exist
+        localStorage.removeItem('phone_store_admin');
+        localStorage.removeItem('phone_store_admin_token');
+      }
     } else if (savedAdminToken && savedAdmin) {
       setAdmin(JSON.parse(savedAdmin));
       setAdminToken(savedAdminToken);
@@ -46,7 +56,7 @@ export function AuthProvider({ children }) {
 
   const apiCall = async (endpoint, options = {}) => {
     const isFormData = options.body instanceof FormData;
-    const currentToken = endpoint.includes('/admin/') ? adminToken : token;
+    const currentToken = endpoint.includes('/admin/') ? adminToken : (token || adminToken);
 
     const headers = {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -105,6 +115,15 @@ export function AuthProvider({ children }) {
     if (res && res.success) {
       const userData = Array.isArray(res.data) ? res.data[0] : res.data;
       if (userData && userData.token) {
+        if (userData.role === 'admin') {
+          setAdmin(userData);
+          setAdminToken(userData.token);
+          localStorage.setItem('phone_store_admin', JSON.stringify(userData));
+          localStorage.setItem('phone_store_admin_token', userData.token);
+          addNotification('Logged in successfully as Admin!', 'success');
+          router.push('/admin');
+          return { success: true, data: userData };
+        }
         setUser(userData);
         setToken(userData.token);
         localStorage.setItem('phone_store_user', JSON.stringify(userData));

@@ -72,7 +72,7 @@ const OFFLINE_INVENTORY = [
 ];
 
 export default function AdminDashboardPage() {
-  const { admin, apiCall, addNotification } = useAuth();
+  const { admin, loading: authLoading, apiCall, addNotification } = useAuth();
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'brands', 'products', 'orders', 'inventory'
 
   // Catalog loaded state
@@ -349,6 +349,15 @@ export default function AdminDashboardPage() {
   };
 
   // Access check
+  if (authLoading) {
+    return (
+      <div className="container" style={styles.centerContainer}>
+        <div style={styles.spinner} />
+        <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>Verifying administrative clearance...</p>
+      </div>
+    );
+  }
+
   if (!admin) {
     return (
       <div className="container" style={styles.centerContainer}>

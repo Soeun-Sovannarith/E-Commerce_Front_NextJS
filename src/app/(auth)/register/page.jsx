@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Mail, Lock, User, KeyRound, Smartphone } from 'lucide-react';
+import { Mail, Lock, User, KeyRound, Smartphone, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
   const { userRegister, resendVerification } = useAuth();
@@ -11,6 +11,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -113,14 +115,21 @@ export default function RegisterPage() {
               <div style={styles.inputWrapper}>
                 <Lock size={18} style={styles.inputIcon} />
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   className="form-control" 
                   placeholder="••••••••" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required 
-                  style={{ paddingLeft: '2.5rem' }}
+                  style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
@@ -129,14 +138,21 @@ export default function RegisterPage() {
               <div style={styles.inputWrapper}>
                 <KeyRound size={18} style={styles.inputIcon} />
                 <input 
-                  type="password" 
+                  type={showConfirmPassword ? "text" : "password"} 
                   className="form-control" 
                   placeholder="••••••••" 
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required 
-                  style={{ paddingLeft: '2.5rem' }}
+                  style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
@@ -232,5 +248,17 @@ const styles = {
     ':hover': {
       textDecoration: 'underline',
     }
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: '0.9rem',
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    padding: 0,
+    outline: 'none',
   }
 };

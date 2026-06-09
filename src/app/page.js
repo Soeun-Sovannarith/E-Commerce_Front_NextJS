@@ -72,7 +72,7 @@ const MOCK_PRODUCTS = [
 ];
 
 export default function HomePage() {
-  const { apiCall, token, loading: authLoading } = useAuth();
+  const { apiCall, user, admin, token, adminToken, loading: authLoading } = useAuth();
   const { addToCart } = useCart();
 
   const [products, setProducts] = useState([]);
@@ -88,7 +88,7 @@ export default function HomePage() {
     const loadCatalog = async () => {
       if (authLoading) return;
 
-      if (!token) {
+      if (!token && !adminToken) {
         setBrands(MOCK_BRANDS);
         setProducts(MOCK_PRODUCTS);
         setLoading(false);
@@ -123,7 +123,7 @@ export default function HomePage() {
     };
 
     loadCatalog();
-  }, [token, authLoading]);
+  }, [token, adminToken, authLoading]);
 
   // Filter logic
   const filteredProducts = products.filter((product) => {
@@ -156,7 +156,13 @@ export default function HomePage() {
           <p style={styles.heroSubtitle}>Explore cutting-edge flagship models, write reviews, track inventory levels, or pre-order upcoming devices instantly.</p>
           <div style={styles.heroActions}>
             <a href="#catalog" className="btn btn-primary">Browse Catalog</a>
-            <Link href="/register" className="btn btn-secondary">Create Account</Link>
+            {admin ? (
+              <Link href="/admin" className="btn btn-secondary">Admin Dashboard</Link>
+            ) : user ? (
+              <Link href="/orders" className="btn btn-secondary">My Orders</Link>
+            ) : (
+              <Link href="/register" className="btn btn-secondary">Create Account</Link>
+            )}
           </div>
         </div>
         <div style={styles.heroVisual}>

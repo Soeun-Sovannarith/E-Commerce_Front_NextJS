@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Mail, Lock, ShieldAlert, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ShieldAlert, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const { adminLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,14 +58,21 @@ export default function AdminLoginPage() {
             <div style={styles.inputWrapper}>
               <Lock size={18} style={styles.inputIcon} />
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 className="form-control" 
                 placeholder="••••••••" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required 
-                style={{ paddingLeft: '2.5rem', borderColor: 'rgba(6, 182, 212, 0.2)' }}
+                style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem', borderColor: 'rgba(6, 182, 212, 0.2)' }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -161,5 +169,17 @@ const styles = {
   link: {
     color: 'var(--secondary)',
     fontWeight: 600,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: '0.9rem',
+    background: 'transparent',
+    border: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    padding: 0,
+    outline: 'none',
   }
 };

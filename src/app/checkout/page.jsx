@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
-import { ShieldCheck, CreditCard, ChevronRight, ShoppingCart, Loader, Sparkles } from 'lucide-react';
+import { ShieldCheck, CreditCard, ChevronRight, ShoppingCart, Loader, Sparkles, QrCode } from 'lucide-react';
 
 export default function CheckoutPage() {
   const { user, apiCall, addNotification } = useAuth();
@@ -13,7 +13,7 @@ export default function CheckoutPage() {
   // Shipping details form
   const [shippingAddress, setShippingAddress] = useState('');
   const [phone, setPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Credit Card');
+  const [paymentMethod, setPaymentMethod] = useState('Card');
 
   // Credit Card fields
   const [cardNumber, setCardNumber] = useState('');
@@ -22,9 +22,10 @@ export default function CheckoutPage() {
 
   const [loading, setLoading] = useState(false);
   const [successOrder, setSuccessOrder] = useState(null);
+  const [createdOrder, setCreatedOrder] = useState(null);
+  const [showCardForm, setShowCardForm] = useState(false);
   const [bakongQR, setBakongQR] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('PENDING');
-  const [manualOrderId, setManualOrderId] = useState('');
 
   // Polling for Bakong payment status
   React.useEffect(() => {
@@ -33,7 +34,9 @@ export default function CheckoutPage() {
     let intervalId;
     const pollStatus = async () => {
       try {
-        const res = await apiCall(`/api/user/payments/verify/${bakongQR.md5_hash}`);
+        const res = await apiCall(`/api/user/payments/verify/${bakongQR.md5_hash}`, {
+          method: 'POST'
+        });
         if (res && res.success && res.data) {
           setPaymentStatus(res.data.status);
           if (res.data.status === 'SUCCESS') {
@@ -41,11 +44,11 @@ export default function CheckoutPage() {
             setSuccessOrder(bakongQR.order);
             clearCart();
             setBakongQR(null);
-            addNotification("Payment received successfully via Bakong!", "success");
+            addNotification("Payment received successfully via KHQR!", "success");
           } else if (res.data.status === 'FAILED') {
             clearInterval(intervalId);
             setBakongQR(null);
-            addNotification("Bakong payment failed.", "error");
+            addNotification("KHQR payment failed.", "error");
           }
         }
       } catch (err) {
@@ -65,41 +68,6 @@ export default function CheckoutPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Support paying an existing manual order ID
-    if (paymentMethod === 'Bakong' && manualOrderId) {
-      setLoading(true);
-      try {
-        // Fetch order details first to ensure it exists
-        const orderRes = await apiCall(`/api/user/orders/${manualOrderId}`);
-        if (!orderRes || !orderRes.success) {
-          addNotification(`Order #${manualOrderId} not found.`, "error");
-          setLoading(false);
-          return;
-        }
-
-        const payRes = await apiCall(`/api/user/payments/generateqr/${manualOrderId}`, {
-          method: 'POST'
-        });
-
-        if (payRes && payRes.success) {
-          setBakongQR({
-            qr_code: payRes.data.qr_code,
-            order_id: parseInt(manualOrderId, 10),
-            amount: orderRes.data.total_amount,
-            order: orderRes.data
-          });
-          setPaymentStatus('PENDING');
-          addNotification(`Loaded payment details for Order #${manualOrderId}`, "info");
-        } else {
-          addNotification(payRes?.message || "Failed to generate Bakong QR.", "error");
-        }
-      } catch (err) {
-        addNotification(err.message || "An error occurred.", "error");
-      }
-      setLoading(false);
-      return;
-    }
-
     if (cart.length === 0) return;
 
     if (!user) {
@@ -113,7 +81,7 @@ export default function CheckoutPage() {
       quantity: item.quantity,
     }));
 
-    // 1. Create order on backend
+    // Create order on backend
     const orderRes = await apiCall('/api/user/orders/create', {
       method: 'POST',
       body: JSON.stringify({
@@ -123,64 +91,78 @@ export default function CheckoutPage() {
     });
 
     if (orderRes && orderRes.success) {
-      if (paymentMethod === 'Bakong') {
-        try {
-          const payRes = await apiCall(`/api/user/payments/generateqr/${orderRes.data.id}`, {
-            method: 'POST'
-          });
-          if (payRes && payRes.success) {
-            setBakongQR({
-              qr_code: payRes.data.qr_code,
-              order_id: orderRes.data.id,
-              amount: orderRes.data.total_amount,
-              order: orderRes.data
-            });
-            setPaymentStatus('PENDING');
-          } else {
-            addNotification("Failed to generate Bakong QR. Proceeding with standard checkout.", "warning");
-            setSuccessOrder(orderRes.data);
-            clearCart();
-          }
-        } catch (err) {
-          console.error(err);
-          setSuccessOrder(orderRes.data);
-          clearCart();
-        }
-      } else {
-        setSuccessOrder(orderRes.data);
-        clearCart();
-        addNotification("Order created successfully!", "success");
-      }
+      setCreatedOrder(orderRes.data);
+      addNotification("Order created successfully! Proceeding to payment options.", "success");
     } else {
       console.warn("API order creation failed, running mock simulation.");
-      // Simulated fallback order creation
       const mockOrder = {
         id: Math.floor(Math.random() * 9000) + 1000,
         order_type: isPreorderCart ? 'PREORDER' : 'ORDER',
-        status: 'PAID',
-        total_amount: cartTotal.toFixed(2),
+        status: 'PENDING',
+        total_amount: cartTotal,
         ordered_at: new Date().toISOString(),
         full_name: user.full_name,
         email: user.email,
         items: cart
       };
-      setSuccessOrder(mockOrder);
-      clearCart();
-      addNotification("Checkout simulation successful!", "success");
+      setCreatedOrder(mockOrder);
+      addNotification("Checkout simulation successful! Proceeding to payment options.", "success");
     }
     setLoading(false);
   };
+
+  const handleKHQRPayment = async () => {
+    if (!createdOrder) return;
+    setLoading(true);
+    try {
+      const payRes = await apiCall(`/api/user/payments/generateqr/${createdOrder.id}`, {
+        method: 'POST'
+      });
+      if (payRes && payRes.success) {
+        setBakongQR({
+          qr_code: payRes.data.qr_code,
+          md5_hash: payRes.data.md5_hash,
+          order_id: createdOrder.id,
+          amount: createdOrder.total_amount,
+          order: createdOrder
+        });
+        setPaymentStatus('PENDING');
+        addNotification("KHQR code generated. Please scan to complete payment.", "info");
+      } else {
+        addNotification(payRes?.message || "Failed to generate KHQR.", "error");
+      }
+    } catch (err) {
+      addNotification(err.message || "An error occurred.", "error");
+    }
+    setLoading(false);
+  };
+
+  const handleCardPaymentSubmit = (e) => {
+    e.preventDefault();
+    if (!cardNumber || !expiry || !cvc) {
+      addNotification("Please fill in all card details.", "error");
+      return;
+    }
+    setLoading(true);
+    setTimeout(() => {
+      setSuccessOrder({
+        ...createdOrder,
+        status: 'PAID'
+      });
+      clearCart();
+      addNotification("Card payment completed successfully!", "success");
+      setLoading(false);
+    }, 1500);
+  };
+
+
+
 
   // Render Bakong QR screen
   if (bakongQR) {
     return (
       <div className="container" style={styles.successContainer}>
         <style>{`
-          @keyframes scan {
-            0% { top: 0%; }
-            50% { top: 100%; }
-            100% { top: 0%; }
-          }
           .pulse-dot {
             width: 8px;
             height: 8px;
@@ -214,10 +196,9 @@ export default function CheckoutPage() {
           </p>
 
           <div style={styles.qrContainer}>
-            <div style={styles.scanLine} />
-            <img 
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(bakongQR.qr_code)}`} 
-              alt="Bakong KHQR Code" 
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(bakongQR.qr_code)}`}
+              alt="Bakong KHQR Code"
               style={styles.qrImage}
             />
           </div>
@@ -236,10 +217,10 @@ export default function CheckoutPage() {
             Do not close this window. We are checking your transaction status automatically.
           </p>
 
-          <button 
-            type="button" 
-            className="btn btn-secondary" 
-            style={{ width: '100%', maxWidth: '200px' }} 
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ width: '100%', maxWidth: '200px' }}
             onClick={() => setBakongQR(null)}
           >
             Cancel Payment
@@ -342,153 +323,208 @@ export default function CheckoutPage() {
       <h1 className="text-gradient-primary" style={styles.pageTitle}>Secure Checkout</h1>
 
       <div style={styles.checkoutGrid}>
-        {/* Left: Checkout Forms */}
-        <form onSubmit={handleSubmit} style={styles.checkoutForms}>
-          {/* Shipping details */}
-          <div className="glass-panel" style={styles.card}>
-            <h2 style={styles.cardTitle}>1. Shipping &amp; Delivery</h2>
-            
-            <div className="form-group">
-              <label className="form-label">Recipient Phone Number</label>
-              <input 
-                type="tel" 
-                className="form-control" 
-                placeholder="+855 12 345 678" 
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Full Shipping Address</label>
-              <textarea 
-                className="form-control" 
-                rows={3}
-                placeholder="Street Address, City, Province, Zip code" 
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Payment gateway simulator */}
-          <div className="glass-panel" style={styles.card}>
-            <h2 style={styles.cardTitle}>2. Payment Information</h2>
-            
-            <div className="form-group">
-              <label className="form-label">Select Payment Method</label>
-              <select 
-                className="form-control"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="Credit Card">Simulated Credit Card</option>
-                <option value="ABA Pay">ABA Pay QR Scan</option>
-                <option value="Bakong">Bakong Link</option>
-              </select>
-            </div>
-
-            {paymentMethod === 'Bakong' && (
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label className="form-label">Order ID (Optional - enter to pay an existing order)</label>
-                <input 
-                  type="number" 
-                  className="form-control" 
-                  placeholder="e.g. 1" 
-                  value={manualOrderId}
-                  onChange={(e) => setManualOrderId(e.target.value)}
-                />
-              </div>
-            )}
-
-            {paymentMethod === 'Credit Card' && (
-              <div style={styles.ccContainer}>
+        {/* Left: Dynamic Step Content */}
+        <div style={styles.checkoutForms}>
+          {!createdOrder ? (
+            /* Step 1: Shipping details form */
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="glass-panel" style={styles.card}>
+                <h2 style={styles.cardTitle}>1. Shipping &amp; Delivery</h2>
+                
                 <div className="form-group">
-                  <label className="form-label">Card Number</label>
-                  <div style={styles.inputIconWrapper}>
-                    <CreditCard size={16} style={styles.ccIcon} />
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="4000 1234 5678 9010" 
-                      maxLength={19}
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim())}
-                      required
-                      style={{ paddingLeft: '2.5rem' }}
-                    />
+                  <label className="form-label">Recipient Phone Number</label>
+                  <input 
+                    type="tel" 
+                    className="form-control" 
+                    placeholder="+855 12 345 678" 
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Full Shipping Address</label>
+                  <textarea 
+                    className="form-control" 
+                    rows={3}
+                    placeholder="Street Address, City, Province, Zip code" 
+                    value={shippingAddress}
+                    onChange={(e) => setShippingAddress(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', padding: '1rem' }}>
+                {loading ? (
+                  <>
+                    <Loader size={18} className="spinner" />
+                    <span>Processing Order...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Place {isPreorderCart ? 'Pre-Order' : 'Secure Order'} (${cartTotal.toFixed(2)})</span>
+                    <ChevronRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* Step 2: Payment options selection */
+            <div className="glass-panel" style={styles.card}>
+              <h2 style={styles.cardTitle}>2. Select Payment Method</h2>
+              
+              <div style={styles.orderSummaryBox}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Order ID:</span>
+                  <span style={{ fontSize: '1rem', fontWeight: 700 }}>#{createdOrder.id}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Amount Due:</span>
+                  <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--secondary)' }}>
+                    ${parseFloat(createdOrder.total_amount || cartTotal).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div style={styles.paymentSelectionGrid}>
+                {/* KHQR Option Card */}
+                <div 
+                  className="glass-card" 
+                  style={{
+                    ...styles.paymentOptionCard,
+                    borderColor: paymentMethod === 'KHQR' ? 'var(--secondary)' : 'var(--border-color)',
+                    background: paymentMethod === 'KHQR' ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-card-glass)',
+                  }}
+                  onClick={() => {
+                    setPaymentMethod('KHQR');
+                    setShowCardForm(false);
+                    handleKHQRPayment();
+                  }}
+                >
+                  <div style={styles.paymentOptionHeader}>
+                    <QrCode size={24} color={paymentMethod === 'KHQR' ? 'var(--secondary)' : 'var(--text-muted)'} />
+                    <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>KHQR (Bakong)</span>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                    Scan and pay using any Cambodian bank app (Bakong, ABA, Acleda, etc.).
+                  </p>
+                  <div 
+                    className="btn btn-secondary btn-sm" 
+                    style={{ 
+                      marginTop: '1.25rem', 
+                      width: '100%',
+                      background: paymentMethod === 'KHQR' ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.05)',
+                      color: paymentMethod === 'KHQR' ? 'var(--text-inverse)' : 'var(--text-main)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {loading && paymentMethod === 'KHQR' ? <Loader size={14} className="spinner" /> : 'Pay with KHQR'}
                   </div>
                 </div>
 
-                <div style={styles.ccRow}>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Expiration Date</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="MM/YY" 
-                      maxLength={5}
-                      value={expiry}
-                      onChange={(e) => setExpiry(e.target.value.replace(/\D/g, '').replace(/(\d{2})/g, '$1/').replace(/\/$/, ''))}
-                      required
-                    />
+                {/* Card Option Card */}
+                <div 
+                  className="glass-card" 
+                  style={{
+                    ...styles.paymentOptionCard,
+                    borderColor: paymentMethod === 'Card' ? 'var(--primary)' : 'var(--border-color)',
+                    background: paymentMethod === 'Card' ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-card-glass)',
+                  }}
+                  onClick={() => {
+                    setPaymentMethod('Card');
+                    setShowCardForm(true);
+                  }}
+                >
+                  <div style={styles.paymentOptionHeader}>
+                    <CreditCard size={24} color={paymentMethod === 'Card' ? 'var(--primary)' : 'var(--text-muted)'} />
+                    <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>Credit Card</span>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                    Secure payment using Visa, Mastercard, JCB, or UnionPay.
+                  </p>
+                  <div 
+                    className="btn btn-secondary btn-sm" 
+                    style={{ 
+                      marginTop: '1.25rem', 
+                      width: '100%',
+                      background: paymentMethod === 'Card' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
+                      color: paymentMethod === 'Card' ? 'white' : 'var(--text-main)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Pay with Card
+                  </div>
+                </div>
+              </div>
+
+              {/* Card form if active */}
+              {showCardForm && paymentMethod === 'Card' && (
+                <form onSubmit={handleCardPaymentSubmit} style={styles.ccContainer}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem', color: 'var(--primary)' }}>Credit Card Information</h3>
+                  <div className="form-group">
+                    <label className="form-label">Card Number</label>
+                    <div style={styles.inputIconWrapper}>
+                      <CreditCard size={16} style={styles.ccIcon} />
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="4000 1234 5678 9010" 
+                        maxLength={19}
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim())}
+                        required
+                        style={{ paddingLeft: '2.5rem' }}
+                      />
+                    </div>
                   </div>
 
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">CVC / CVV</label>
-                    <input 
-                      type="password" 
-                      className="form-control" 
-                      placeholder="123" 
-                      maxLength={3}
-                      value={cvc}
-                      onChange={(e) => setCvc(e.target.value.replace(/\D/g, ''))}
-                      required
-                    />
+                  <div style={styles.ccRow}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label className="form-label">Expiration Date</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="MM/YY" 
+                        maxLength={5}
+                        value={expiry}
+                        onChange={(e) => setExpiry(e.target.value.replace(/\D/g, '').replace(/(\d{2})/g, '$1/').replace(/\/$/, ''))}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label className="form-label">CVC / CVV</label>
+                      <input 
+                        type="password" 
+                        className="form-control" 
+                        placeholder="123" 
+                        maxLength={3}
+                        value={cvc}
+                        onChange={(e) => setCvc(e.target.value.replace(/\D/g, ''))}
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {paymentMethod === 'ABA Pay' && (
-              <div style={styles.qrPlaceholder}>
-                <div style={styles.qrCodeBox}>
-                  ABA QR SIMULATOR
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center' }}>
-                  A payment receipt link will be sent upon submission.
-                </p>
-              </div>
-            )}
+                  <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', padding: '1rem', marginTop: '1rem' }}>
+                    {loading ? <Loader size={18} className="spinner" /> : `Submit Card Payment ($${parseFloat(createdOrder.total_amount || cartTotal).toFixed(2)})`}
+                  </button>
+                </form>
+              )}
 
-            {paymentMethod === 'Bakong' && (
-              <div style={styles.qrPlaceholder}>
-                <div style={{ ...styles.qrCodeBox, border: '1px dashed rgba(239, 68, 68, 0.4)', color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.03)' }}>
-                  KHQR GENERATOR
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.75rem', textAlign: 'center', maxWidth: '300px', alignSelf: 'center' }}>
-                  A secure Bakong KHQR code will be dynamically generated for you to scan and pay with any Cambodian mobile banking app.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', padding: '1rem' }}>
-            {loading ? (
-              <>
-                <Loader size={18} className="spinner" />
-                <span>Processing Order...</span>
-              </>
-            ) : (
-              <>
-                <span>Place {isPreorderCart ? 'Pre-Order' : 'Secure Order'} (${cartTotal.toFixed(2)})</span>
-                <ChevronRight size={18} />
-              </>
-            )}
-          </button>
-        </form>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ width: '100%', marginTop: '1.5rem', borderStyle: 'dashed' }} 
+                onClick={() => setCreatedOrder(null)}
+              >
+                Change Shipping Details
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Right: Checkout Sidebar */}
         <div className="glass-panel" style={styles.checkoutSidebar}>
@@ -798,5 +834,43 @@ const styles = {
     padding: '1.25rem 2.5rem',
     width: '100%',
     marginBottom: '1.5rem',
+  },
+  orderSummaryBox: {
+    background: 'rgba(15, 23, 42, 0.3)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-md)',
+    padding: '1.25rem',
+    marginBottom: '1.5rem',
+  },
+  paymentSelectionGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '1rem',
+    marginBottom: '1.5rem',
+  },
+  paymentOptionCard: {
+    padding: '1.5rem',
+    borderRadius: 'var(--radius-md)',
+    cursor: 'pointer',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    textAlign: 'left',
+    transition: 'all var(--transition-normal)',
+  },
+  paymentOptionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '0.5rem',
+  },
+  ccContainer: {
+    background: 'rgba(15, 23, 42, 0.2)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-md)',
+    padding: '1.5rem',
+    marginTop: '1.5rem',
   }
 };
