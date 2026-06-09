@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  phoneshop-front:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phoneshop-front
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    restart: always
