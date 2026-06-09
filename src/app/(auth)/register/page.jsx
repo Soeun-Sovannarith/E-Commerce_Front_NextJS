@@ -30,26 +30,23 @@ export default function RegisterPage() {
       return;
     }
 
-    try {
-      setLoading(true);
-      await userRegister(fullName, email, password);
+    setLoading(true);
+    const res = await userRegister(fullName, email, password);
+    if (res && res.success) {
       setSuccess(true);
-    } catch (err) {
-      setError(err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(res?.message || 'Registration failed');
     }
+    setLoading(false);
   };
 
   const handleResend = async () => {
-    try {
-      setLoading(true);
-      await resendVerification(email);
-    } catch (err) {
-      setError(err.message || 'Failed to resend verification');
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const res = await resendVerification(email);
+    if (res && !res.success) {
+      setError(res.message || 'Failed to resend verification');
     }
+    setLoading(false);
   };
 
   return (

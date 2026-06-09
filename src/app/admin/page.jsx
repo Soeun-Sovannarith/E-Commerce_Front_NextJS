@@ -107,37 +107,28 @@ export default function AdminDashboardPage() {
 
   // Initial Load
   const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      // Load brands
-      const bRes = await apiCall('/api/user/brands/all').catch(() => null);
-      if (bRes && bRes.success) setBrands(bRes.data);
-      else setBrands(OFFLINE_BRANDS);
+    setLoading(true);
+    // Load brands
+    const bRes = await apiCall('/api/user/brands/all');
+    if (bRes && bRes.success) setBrands(bRes.data);
+    else setBrands(OFFLINE_BRANDS);
 
-      // Load products
-      const pRes = await apiCall('/api/user/products/all').catch(() => null);
-      if (pRes && pRes.success) setProducts(pRes.data);
-      else setProducts(OFFLINE_PRODUCTS);
+    // Load products
+    const pRes = await apiCall('/api/user/products/all');
+    if (pRes && pRes.success) setProducts(pRes.data);
+    else setProducts(OFFLINE_PRODUCTS);
 
-      // Load orders
-      const oRes = await apiCall('/api/user/orders/all').catch(() => null);
-      if (oRes && oRes.success) setOrders(oRes.data);
-      else setOrders(OFFLINE_ORDERS);
+    // Load orders
+    const oRes = await apiCall('/api/user/orders/all');
+    if (oRes && oRes.success) setOrders(oRes.data);
+    else setOrders(OFFLINE_ORDERS);
 
-      // Load inventory logs
-      const iRes = await apiCall('/api/user/inventory/all').catch(() => null);
-      if (iRes && iRes.success) setInventoryLogs(iRes.data);
-      else setInventoryLogs(OFFLINE_INVENTORY);
-
-    } catch (err) {
-      console.warn("API disconnect, loaded offline simulation storage.");
-      setBrands(OFFLINE_BRANDS);
-      setProducts(OFFLINE_PRODUCTS);
-      setOrders(OFFLINE_ORDERS);
-      setInventoryLogs(OFFLINE_INVENTORY);
-    } finally {
-      setLoading(false);
-    }
+    // Load inventory logs
+    const iRes = await apiCall('/api/user/inventory/all');
+    if (iRes && iRes.success) setInventoryLogs(iRes.data);
+    else setInventoryLogs(OFFLINE_INVENTORY);
+    
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -149,25 +140,25 @@ export default function AdminDashboardPage() {
   // Brand Submit (Create / Edit)
   const handleBrandSubmit = async (e) => {
     e.preventDefault();
-    try {
-      if (editBrand) {
-        // Edit Brand
-        const res = await apiCall(`/api/user/brands/${editBrand.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ name: brandName, description: brandDesc })
-        });
-        if (res.success) addNotification("Brand updated successfully", "success");
-      } else {
-        // Create Brand
-        const res = await apiCall('/api/user/brands/create', {
-          method: 'POST',
-          body: JSON.stringify({ name: brandName, description: brandDesc })
-        });
-        if (res.success) addNotification("Brand created successfully", "success");
-      }
+    let res;
+    if (editBrand) {
+      // Edit Brand
+      res = await apiCall(`/api/user/brands/${editBrand.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: brandName, description: brandDesc })
+      });
+    } else {
+      // Create Brand
+      res = await apiCall('/api/user/brands/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: brandName, description: brandDesc })
+      });
+    }
+    if (res && res.success) {
+      addNotification(editBrand ? "Brand updated successfully" : "Brand created successfully", "success");
       setShowBrandModal(false);
       fetchAllData();
-    } catch (err) {
+    } else {
       // Offline edit simulation
       addNotification("Offline: Operation completed locally", "info");
       if (editBrand) {
@@ -181,11 +172,11 @@ export default function AdminDashboardPage() {
 
   const handleBrandDelete = async (brandId) => {
     if (!confirm("Are you sure you want to delete this brand?")) return;
-    try {
-      await apiCall(`/api/user/brands/${brandId}`, { method: 'DELETE' });
+    const res = await apiCall(`/api/user/brands/${brandId}`, { method: 'DELETE' });
+    if (res && res.success) {
       addNotification("Brand deleted successfully", "success");
       fetchAllData();
-    } catch (err) {
+    } else {
       addNotification("Offline: Brand deleted locally", "info");
       setBrands(prev => prev.filter(b => b.id !== brandId));
     }
@@ -212,26 +203,27 @@ export default function AdminDashboardPage() {
       fd.append('image_url', pImageUrl);
     }
 
-    try {
-      if (editProduct) {
-        // Edit Product
-        // Note: For multipart FormData, omit 'Content-Type' header and fetch handles boundary
-        const res = await apiCall(`/api/user/products/${editProduct.id}`, {
-          method: 'PUT',
-          body: fd
-        });
-        if (res.success) addNotification("Product updated successfully", "success");
-      } else {
-        // Create Product
-        const res = await apiCall('/api/user/products/create', {
-          method: 'POST',
-          body: fd
-        });
-        if (res.success) addNotification("Product created successfully", "success");
-      }
+    let res;
+    if (editProduct) {
+      // Edit Product
+      // Note: For multipart FormData, omit 'Content-Type' header and fetch handles boundary
+      res = await apiCall(`/api/user/products/${editProduct.id}`, {
+        method: 'PUT',
+        body: fd
+      });
+    } else {
+      // Create Product
+      res = await apiCall('/api/user/products/create', {
+        method: 'POST',
+        body: fd
+      });
+    }
+
+    if (res && res.success) {
+      addNotification(editProduct ? "Product updated successfully" : "Product created successfully", "success");
       setShowProductModal(false);
       fetchAllData();
-    } catch (err) {
+    } else {
       addNotification("Offline: Product saved locally", "info");
       const matchedBrandName = brands.find(b => parseInt(b.id) === parseInt(pBrandId))?.name || 'Unknown';
       if (editProduct) {
@@ -268,11 +260,11 @@ export default function AdminDashboardPage() {
 
   const handleProductDelete = async (productId) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
-    try {
-      await apiCall(`/api/user/products/${productId}`, { method: 'DELETE' });
+    const res = await apiCall(`/api/user/products/${productId}`, { method: 'DELETE' });
+    if (res && res.success) {
       addNotification("Product deleted successfully", "success");
       fetchAllData();
-    } catch (err) {
+    } else {
       addNotification("Offline: Product deleted locally", "info");
       setProducts(prev => prev.filter(p => p.id !== productId));
     }
@@ -280,14 +272,14 @@ export default function AdminDashboardPage() {
 
   // Order Status Update
   const handleStatusChange = async (orderId, newStatus) => {
-    try {
-      await apiCall(`/api/user/orders/${orderId}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: newStatus })
-      });
+    const res = await apiCall(`/api/user/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (res && res.success) {
       addNotification(`Order #${orderId} updated to ${newStatus}`, "success");
       fetchAllData();
-    } catch (err) {
+    } else {
       addNotification("Offline: Status changed locally", "info");
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     }
@@ -295,11 +287,11 @@ export default function AdminDashboardPage() {
 
   const handleOrderDelete = async (orderId) => {
     if (!confirm("Are you sure you want to delete order record?")) return;
-    try {
-      await apiCall(`/api/user/orders/${orderId}`, { method: 'DELETE' });
+    const res = await apiCall(`/api/user/orders/${orderId}`, { method: 'DELETE' });
+    if (res && res.success) {
       addNotification("Order record deleted", "success");
       fetchAllData();
-    } catch (err) {
+    } else {
       addNotification("Offline: Deleted order locally", "info");
       setOrders(prev => prev.filter(o => o.id !== orderId));
     }
@@ -310,21 +302,19 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!stockProductId || !stockQty) return;
 
-    try {
-      const res = await apiCall('/api/user/inventory/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          product_id: parseInt(stockProductId, 10),
-          action_type: stockAction,
-          quantity_changed: parseInt(stockQty, 10)
-        })
-      });
-      if (res.success) {
-        addNotification("Stock level updated and logged.", "success");
-        setShowStockModal(false);
-        fetchAllData();
-      }
-    } catch (err) {
+    const res = await apiCall('/api/user/inventory/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        product_id: parseInt(stockProductId, 10),
+        action_type: stockAction,
+        quantity_changed: parseInt(stockQty, 10)
+      })
+    });
+    if (res && res.success) {
+      addNotification("Stock level updated and logged.", "success");
+      setShowStockModal(false);
+      fetchAllData();
+    } else {
       addNotification("Offline: Stock logged locally", "info");
       const matchedProdName = products.find(p => parseInt(p.id) === parseInt(stockProductId))?.name || 'Unknown';
       const parsedQty = parseInt(stockQty, 10);

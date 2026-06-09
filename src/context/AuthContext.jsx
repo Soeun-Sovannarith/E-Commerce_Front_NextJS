@@ -26,8 +26,10 @@ export function AuthProvider({ children }) {
     if (savedToken && savedUser) {
       setUser(JSON.parse(savedUser));
       setToken(savedToken);
-    }
-    if (savedAdminToken && savedAdmin) {
+      // Clean up hybrid session if both exist
+      localStorage.removeItem('phone_store_admin');
+      localStorage.removeItem('phone_store_admin_token');
+    } else if (savedAdminToken && savedAdmin) {
       setAdmin(JSON.parse(savedAdmin));
       setAdminToken(savedAdminToken);
     }
@@ -60,37 +62,47 @@ export function AuthProvider({ children }) {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        return { success: false, error: true, message: data.message || 'Something went wrong' };
+      }
+      if (typeof data === 'object' && data !== null && !('success' in data)) {
+        data.success = true;
       }
       return data;
     } catch (err) {
       console.error(`API Call error on ${endpoint}:`, err);
-      throw err;
+      return { success: false, error: true, message: err.message || 'Network connection error' };
     }
   };
 
   // Customer Authentication Actions
   const userRegister = async (fullName, email, password) => {
-    try {
-      const res = await apiCall('/api/auth/users/register', {
-        method: 'POST',
-        body: JSON.stringify({ name: fullName, full_name: fullName, email, password_hash: password }),
-      });
+    const res = await apiCall('/api/auth/users/register', {
+      method: 'POST',
+      body: JSON.stringify({ name: fullName, full_name: fullName, email, password_hash: password }),
+    });
+    if (res && res.success) {
       addNotification('Registration successful! Please check your email to verify.', 'success');
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+      return { success: true, data: res };
+    } else {
+      const msg = res?.message || 'Registration failed';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const userLogin = async (email, password) => {
-    try {
-      const res = await apiCall('/api/auth/users/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password_hash: password }),
-      });
-      
+    // Clear admin session on user login
+    setAdmin(null);
+    setAdminToken(null);
+    localStorage.removeItem('phone_store_admin');
+    localStorage.removeItem('phone_store_admin_token');
+
+    const res = await apiCall('/api/auth/users/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password_hash: password }),
+    });
+    
+    if (res && res.success) {
       const userData = Array.isArray(res.data) ? res.data[0] : res.data;
       if (userData && userData.token) {
         setUser(userData);
@@ -99,108 +111,117 @@ export function AuthProvider({ children }) {
         localStorage.setItem('phone_store_token', userData.token);
         addNotification('Logged in successfully!', 'success');
         router.push('/');
+        return { success: true, data: userData };
       } else {
-        throw new Error('Authentication token missing from response');
+        const msg = 'Authentication token missing from response';
+        addNotification(msg, 'error');
+        return { success: false, message: msg };
       }
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+    } else {
+      const msg = res?.message || 'Email and password invalid';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const userLogout = async () => {
-    try {
-      await apiCall('/api/auth/users/logout', { method: 'DELETE' });
-    } catch (err) {
-      console.warn('Backend logout failed or not available:', err);
-    } finally {
-      setUser(null);
-      setToken(null);
-      localStorage.removeItem('phone_store_user');
-      localStorage.removeItem('phone_store_token');
-      addNotification('Logged out successfully!', 'info');
-      router.push('/login');
-    }
+    await apiCall('/api/auth/users/logout', { method: 'DELETE' });
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('phone_store_user');
+    localStorage.removeItem('phone_store_token');
+    addNotification('Logged out successfully!', 'info');
+    router.push('/login');
   };
 
   // Verification & Password Reset Flows
   const verifyEmail = async (verificationToken) => {
-    try {
-      const res = await apiCall(`/api/auth/users/verify-email?token=${verificationToken}`);
+    const res = await apiCall(`/api/auth/users/verify-email?token=${verificationToken}`);
+    if (res && res.success) {
       addNotification('Email verified successfully! You can now log in.', 'success');
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+      return { success: true, data: res };
+    } else {
+      const msg = res?.message || 'Verification failed. The token may be expired or invalid.';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const resendVerification = async (email) => {
-    try {
-      const res = await apiCall('/api/auth/users/resend-verification', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      });
+    const res = await apiCall('/api/auth/users/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    if (res && res.success) {
       addNotification('Verification email resent.', 'success');
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+      return { success: true, data: res };
+    } else {
+      const msg = res?.message || 'Failed to resend verification email';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const forgotPassword = async (email) => {
-    try {
-      const res = await apiCall('/api/auth/users/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      });
+    const res = await apiCall('/api/auth/users/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    if (res && res.success) {
       addNotification('Password reset OTP sent to your email.', 'success');
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+      return { success: true, data: res };
+    } else {
+      const msg = res?.message || 'Failed to request password reset';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const verifyResetOtp = async (email, otp) => {
-    try {
-      const res = await apiCall('/api/auth/users/verify-reset-otp', {
-        method: 'POST',
-        body: JSON.stringify({ email, otp }),
-      });
+    const res = await apiCall('/api/auth/users/verify-reset-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+    if (res && res.success) {
       addNotification('OTP verified successfully.', 'success');
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+      return { success: true, data: res };
+    } else {
+      const msg = res?.message || 'Invalid OTP';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const resetPassword = async (email, otp, newPassword) => {
-    try {
-      const res = await apiCall('/api/auth/users/reset-password', {
-        method: 'POST',
-        body: JSON.stringify({ email, otp, password_hash: newPassword }),
-      });
+    const res = await apiCall('/api/auth/users/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, password_hash: newPassword }),
+    });
+    if (res && res.success) {
       addNotification('Password reset successful! You can now log in.', 'success');
       router.push('/login');
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+      return { success: true, data: res };
+    } else {
+      const msg = res?.message || 'Failed to reset password';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   // Admin Authentication Actions
   const adminLogin = async (email, password) => {
-    try {
-      const res = await apiCall('/api/auth/admin/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password_hash: password }),
-      });
-      
+    // Clear user session on admin login
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('phone_store_user');
+    localStorage.removeItem('phone_store_token');
+
+    const res = await apiCall('/api/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password_hash: password }),
+    });
+    
+    if (res && res.success) {
       const adminData = Array.isArray(res.data) ? res.data[0] : res.data;
       if (adminData && adminData.token) {
         setAdmin(adminData);
@@ -209,29 +230,27 @@ export function AuthProvider({ children }) {
         localStorage.setItem('phone_store_admin_token', adminData.token);
         addNotification('Admin logged in successfully!', 'success');
         router.push('/admin');
+        return { success: true, data: adminData };
       } else {
-        throw new Error('Admin authentication token missing');
+        const msg = 'Admin authentication token missing';
+        addNotification(msg, 'error');
+        return { success: false, message: msg };
       }
-      return res;
-    } catch (err) {
-      addNotification(err.message, 'error');
-      throw err;
+    } else {
+      const msg = res?.message || 'Authentication failed. Please check admin credentials.';
+      addNotification(msg, 'error');
+      return { success: false, message: msg };
     }
   };
 
   const adminLogout = async () => {
-    try {
-      await apiCall('/api/auth/admin/logout', { method: 'DELETE' });
-    } catch (err) {
-      console.warn('Admin backend logout failed:', err);
-    } finally {
-      setAdmin(null);
-      setAdminToken(null);
-      localStorage.removeItem('phone_store_admin');
-      localStorage.removeItem('phone_store_admin_token');
-      addNotification('Admin logged out.', 'info');
-      router.push('/admin/login');
-    }
+    await apiCall('/api/auth/admin/logout', { method: 'DELETE' });
+    setAdmin(null);
+    setAdminToken(null);
+    localStorage.removeItem('phone_store_admin');
+    localStorage.removeItem('phone_store_admin_token');
+    addNotification('Admin logged out.', 'info');
+    router.push('/admin/login');
   };
 
   return (

@@ -98,9 +98,9 @@ export default function HomePage() {
       try {
         setLoading(true);
         // Load brands
-        const brandsRes = await apiCall('/api/user/brands/all').catch(() => null);
+        const brandsRes = await apiCall('/api/user/brands/all');
         // Load products
-        const productsRes = await apiCall('/api/user/products/all').catch(() => null);
+        const productsRes = await apiCall('/api/user/products/all');
 
         if (brandsRes && brandsRes.success) {
           setBrands(brandsRes.data);
@@ -114,7 +114,7 @@ export default function HomePage() {
           setProducts(MOCK_PRODUCTS);
         }
       } catch (err) {
-        console.warn('Backend API connection failed, using offline mock database.');
+        console.warn('Unexpected error loading catalog, using offline mock database:', err);
         setBrands(MOCK_BRANDS);
         setProducts(MOCK_PRODUCTS);
       } finally {

@@ -15,15 +15,13 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    try {
-      setLoading(true);
-      await userLogin(email, password);
-    } catch (err) {
-      setError(err.message || 'Login failed. Please check credentials or email verification status.');
-    } finally {
-      setLoading(false);
+    const res = await userLogin(email, password);
+    if (res && !res.success) {
+      setError(res.message || 'Login failed. Please check credentials or email verification status.');
     }
+    setLoading(false);
   };
 
   return (

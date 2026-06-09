@@ -116,7 +116,7 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
     try {
       setLoading(true);
       // Fetch details
-      const detailRes = await apiCall(`/api/user/products/${id}`).catch(() => null);
+      const detailRes = await apiCall(`/api/user/products/${id}`);
       if (detailRes && detailRes.success) {
         setProduct(detailRes.data);
       } else {
@@ -125,7 +125,7 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
       }
 
       // Fetch reviews
-      const reviewsRes = await apiCall(`/api/user/reviews/product/${id}`).catch(() => null);
+      const reviewsRes = await apiCall(`/api/user/reviews/product/${id}`);
       if (reviewsRes && reviewsRes.success) {
         setReviews(reviewsRes.data);
       } else {
@@ -133,7 +133,7 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
         setReviews(FALLBACK_REVIEWS.filter(r => r.product_id === parseInt(id, 10)));
       }
     } catch (err) {
-      console.warn("Using offline catalog fallback.");
+      console.warn("Unexpected details load issue, using offline catalog fallback:", err);
       const found = FALLBACK_PRODUCTS.find(p => p.id === parseInt(id, 10));
       setProduct(found || null);
       setReviews(FALLBACK_REVIEWS.filter(r => r.product_id === parseInt(id, 10)));
@@ -156,25 +156,23 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
     e.preventDefault();
     if (!reviewText.trim()) return;
 
-    try {
-      setSubmittingReview(true);
-      const res = await apiCall('/api/user/reviews/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          product_id: parseInt(id, 10),
-          rating,
-          review_text: reviewText
-        })
-      });
+    setSubmittingReview(true);
+    const res = await apiCall('/api/user/reviews/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        product_id: parseInt(id, 10),
+        rating,
+        review_text: reviewText
+      })
+    });
 
-      if (res && res.success) {
-        addNotification("Review posted successfully!", "success");
-        setReviewText('');
-        setRating(5);
-        // Reload page data to get the new review
-        loadProductData();
-      }
-    } catch (err) {
+    if (res && res.success) {
+      addNotification("Review posted successfully!", "success");
+      setReviewText('');
+      setRating(5);
+      // Reload page data to get the new review
+      loadProductData();
+    } else {
       // Offline fallback addition for testing
       addNotification("Offline mode: review added locally.", "info");
       const newMockReview = {
@@ -190,9 +188,8 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
       setReviews(prev => [newMockReview, ...prev]);
       setReviewText('');
       setRating(5);
-    } finally {
-      setSubmittingReview(false);
     }
+    setSubmittingReview(false);
   };
 
   if (loading) {

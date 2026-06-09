@@ -38,14 +38,12 @@ function ResetPasswordContent() {
       return;
     }
 
-    try {
-      setLoading(true);
-      await resetPassword(email, otp, password);
-    } catch (err) {
-      setError(err.message || 'Failed to reset password. Verify your OTP and email.');
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const res = await resetPassword(email, otp, password);
+    if (res && !res.success) {
+      setError(res.message || 'Failed to reset password. Verify your OTP and email.');
     }
+    setLoading(false);
   };
 
   return (

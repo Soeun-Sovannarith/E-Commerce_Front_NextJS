@@ -16,17 +16,16 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    try {
-      setLoading(true);
-      await forgotPassword(email);
+    const res = await forgotPassword(email);
+    if (res && res.success) {
       // Redirect to reset page with email query parameter
       router.push(`/reset-password?email=${encodeURIComponent(email)}`);
-    } catch (err) {
-      setError(err.message || 'Failed to request password reset. Check if email is correct.');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(res?.message || 'Failed to request password reset. Check if email is correct.');
     }
+    setLoading(false);
   };
 
   return (

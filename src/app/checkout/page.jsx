@@ -22,9 +22,84 @@ export default function CheckoutPage() {
 
   const [loading, setLoading] = useState(false);
   const [successOrder, setSuccessOrder] = useState(null);
+  const [bakongQR, setBakongQR] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState('PENDING');
+  const [manualOrderId, setManualOrderId] = useState('');
+
+  // Polling for Bakong payment status
+  React.useEffect(() => {
+    if (!bakongQR) return;
+
+    let intervalId;
+    const pollStatus = async () => {
+      try {
+        const res = await apiCall(`/api/user/payments/verify/${bakongQR.md5_hash}`);
+        if (res && res.success && res.data) {
+          setPaymentStatus(res.data.status);
+          if (res.data.status === 'SUCCESS') {
+            clearInterval(intervalId);
+            setSuccessOrder(bakongQR.order);
+            clearCart();
+            setBakongQR(null);
+            addNotification("Payment received successfully via Bakong!", "success");
+          } else if (res.data.status === 'FAILED') {
+            clearInterval(intervalId);
+            setBakongQR(null);
+            addNotification("Bakong payment failed.", "error");
+          }
+        }
+      } catch (err) {
+        console.warn("Error polling payment status:", err);
+      }
+    };
+
+    // Poll every 3 seconds
+    intervalId = setInterval(pollStatus, 3000);
+
+    // Initial check
+    pollStatus();
+
+    return () => clearInterval(intervalId);
+  }, [bakongQR]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Support paying an existing manual order ID
+    if (paymentMethod === 'Bakong' && manualOrderId) {
+      setLoading(true);
+      try {
+        // Fetch order details first to ensure it exists
+        const orderRes = await apiCall(`/api/user/orders/${manualOrderId}`);
+        if (!orderRes || !orderRes.success) {
+          addNotification(`Order #${manualOrderId} not found.`, "error");
+          setLoading(false);
+          return;
+        }
+
+        const payRes = await apiCall(`/api/user/payments/generateqr/${manualOrderId}`, {
+          method: 'POST'
+        });
+
+        if (payRes && payRes.success) {
+          setBakongQR({
+            qr_code: payRes.data.qr_code,
+            order_id: parseInt(manualOrderId, 10),
+            amount: orderRes.data.total_amount,
+            order: orderRes.data
+          });
+          setPaymentStatus('PENDING');
+          addNotification(`Loaded payment details for Order #${manualOrderId}`, "info");
+        } else {
+          addNotification(payRes?.message || "Failed to generate Bakong QR.", "error");
+        }
+      } catch (err) {
+        addNotification(err.message || "An error occurred.", "error");
+      }
+      setLoading(false);
+      return;
+    }
+
     if (cart.length === 0) return;
 
     if (!user) {
@@ -32,28 +107,51 @@ export default function CheckoutPage() {
       return;
     }
 
-    try {
-      setLoading(true);
-      const orderItems = cart.map((item) => ({
-        product_id: item.id,
-        quantity: item.quantity,
-      }));
+    setLoading(true);
+    const orderItems = cart.map((item) => ({
+      product_id: item.id,
+      quantity: item.quantity,
+    }));
 
-      // 1. Create order on backend
-      const orderRes = await apiCall('/api/user/orders/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          order_type: isPreorderCart ? 'PREORDER' : 'ORDER',
-          items: orderItems,
-        }),
-      });
+    // 1. Create order on backend
+    const orderRes = await apiCall('/api/user/orders/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_type: isPreorderCart ? 'PREORDER' : 'ORDER',
+        items: orderItems,
+      }),
+    });
 
-      if (orderRes && orderRes.success) {
+    if (orderRes && orderRes.success) {
+      if (paymentMethod === 'Bakong') {
+        try {
+          const payRes = await apiCall(`/api/user/payments/generateqr/${orderRes.data.id}`, {
+            method: 'POST'
+          });
+          if (payRes && payRes.success) {
+            setBakongQR({
+              qr_code: payRes.data.qr_code,
+              order_id: orderRes.data.id,
+              amount: orderRes.data.total_amount,
+              order: orderRes.data
+            });
+            setPaymentStatus('PENDING');
+          } else {
+            addNotification("Failed to generate Bakong QR. Proceeding with standard checkout.", "warning");
+            setSuccessOrder(orderRes.data);
+            clearCart();
+          }
+        } catch (err) {
+          console.error(err);
+          setSuccessOrder(orderRes.data);
+          clearCart();
+        }
+      } else {
         setSuccessOrder(orderRes.data);
         clearCart();
         addNotification("Order created successfully!", "success");
       }
-    } catch (err) {
+    } else {
       console.warn("API order creation failed, running mock simulation.");
       // Simulated fallback order creation
       const mockOrder = {
@@ -69,10 +167,87 @@ export default function CheckoutPage() {
       setSuccessOrder(mockOrder);
       clearCart();
       addNotification("Checkout simulation successful!", "success");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
+
+  // Render Bakong QR screen
+  if (bakongQR) {
+    return (
+      <div className="container" style={styles.successContainer}>
+        <style>{`
+          @keyframes scan {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+          }
+          .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10B981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #10B981;
+            animation: pulse 1.5s infinite;
+          }
+          @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+          }
+        `}</style>
+        <div className="glass-panel" style={styles.bakongCard}>
+          <div style={styles.bakongHeader}>
+            <div style={styles.bakongLogoWrapper}>
+              <span style={styles.bakongLogoText}>BAKONG KHQR</span>
+            </div>
+            <span style={styles.statusBadge}>
+              <span className="pulse-dot" /> Live Status: {paymentStatus}
+            </span>
+          </div>
+
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '1.5rem', marginBottom: '0.25rem' }}>
+            Scan to Pay with Bakong
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', maxWidth: '360px' }}>
+            Scan the KHQR code using your Bakong app or any supported Cambodian mobile banking app.
+          </p>
+
+          <div style={styles.qrContainer}>
+            <div style={styles.scanLine} />
+            <img 
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(bakongQR.qr_code)}`} 
+              alt="Bakong KHQR Code" 
+              style={styles.qrImage}
+            />
+          </div>
+
+          <div style={styles.bakongAmountBox}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Amount Due</div>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--secondary)' }}>
+              ${parseFloat(bakongQR.amount).toFixed(2)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              Order ID: #{bakongQR.order_id}
+            </div>
+          </div>
+
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', maxWidth: '380px', marginBottom: '2rem' }}>
+            Do not close this window. We are checking your transaction status automatically.
+          </p>
+
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            style={{ width: '100%', maxWidth: '200px' }} 
+            onClick={() => setBakongQR(null)}
+          >
+            Cancel Payment
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Render when order succeeds
   if (successOrder) {
@@ -215,6 +390,19 @@ export default function CheckoutPage() {
               </select>
             </div>
 
+            {paymentMethod === 'Bakong' && (
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label className="form-label">Order ID (Optional - enter to pay an existing order)</label>
+                <input 
+                  type="number" 
+                  className="form-control" 
+                  placeholder="e.g. 1" 
+                  value={manualOrderId}
+                  onChange={(e) => setManualOrderId(e.target.value)}
+                />
+              </div>
+            )}
+
             {paymentMethod === 'Credit Card' && (
               <div style={styles.ccContainer}>
                 <div className="form-group">
@@ -264,13 +452,24 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {paymentMethod !== 'Credit Card' && (
+            {paymentMethod === 'ABA Pay' && (
               <div style={styles.qrPlaceholder}>
                 <div style={styles.qrCodeBox}>
-                  QR CODE SIMULATOR
+                  ABA QR SIMULATOR
                 </div>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center' }}>
                   A payment receipt link will be sent upon submission.
+                </p>
+              </div>
+            )}
+
+            {paymentMethod === 'Bakong' && (
+              <div style={styles.qrPlaceholder}>
+                <div style={{ ...styles.qrCodeBox, border: '1px dashed rgba(239, 68, 68, 0.4)', color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.03)' }}>
+                  KHQR GENERATOR
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.75rem', textAlign: 'center', maxWidth: '300px', alignSelf: 'center' }}>
+                  A secure Bakong KHQR code will be dynamically generated for you to scan and pay with any Cambodian mobile banking app.
                 </p>
               </div>
             )}
@@ -530,5 +729,74 @@ const styles = {
     display: 'flex',
     gap: '0.75rem',
     width: '100%',
+  },
+  bakongCard: {
+    width: '100%',
+    maxWidth: '480px',
+    borderRadius: 'var(--radius-lg)',
+    padding: '2.5rem 2rem',
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    border: '1px solid rgba(239, 68, 68, 0.2)', // Reddish tint for Bakong
+    background: 'radial-gradient(circle at top, rgba(239, 68, 68, 0.05), rgba(0, 0, 0, 0))',
+  },
+  bakongHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    borderBottom: '1px solid var(--border-color)',
+    paddingBottom: '1rem',
+  },
+  bakongLogoWrapper: {
+    background: 'linear-gradient(135deg, #EF4444, #991B1B)',
+    padding: '0.3rem 0.8rem',
+    borderRadius: 'var(--radius-sm)',
+    color: 'white',
+    fontWeight: 800,
+    fontSize: '0.8rem',
+  },
+  bakongLogoText: {
+    letterSpacing: '0.05em',
+  },
+  statusBadge: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+  },
+  qrContainer: {
+    position: 'relative',
+    background: 'white',
+    padding: '1.25rem',
+    borderRadius: 'var(--radius-md)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(239,68,68,0.15)',
+    marginBottom: '1.5rem',
+    overflow: 'hidden',
+  },
+  qrImage: {
+    width: '220px',
+    height: '220px',
+    display: 'block',
+  },
+  scanLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: '3px',
+    background: '#EF4444',
+    boxShadow: '0 0 10px #EF4444, 0 0 5px #EF4444',
+    animation: 'scan 2.5s ease-in-out infinite',
+  },
+  bakongAmountBox: {
+    background: 'rgba(4,6,10,0.3)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-md)',
+    padding: '1.25rem 2.5rem',
+    width: '100%',
+    marginBottom: '1.5rem',
   }
 };

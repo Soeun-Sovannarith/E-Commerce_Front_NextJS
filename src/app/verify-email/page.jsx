@@ -24,12 +24,12 @@ function VerifyEmailContent() {
     }
 
     const runVerification = async () => {
-      try {
-        await verifyEmail(token);
+      const res = await verifyEmail(token);
+      if (res && res.success) {
         setStatus('success');
-      } catch (err) {
+      } else {
         setStatus('error');
-        setErrorMessage(err.message || 'Verification failed. The token may be expired or invalid.');
+        setErrorMessage(res?.message || 'Verification failed. The token may be expired or invalid.');
       }
     };
 

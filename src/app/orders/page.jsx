@@ -17,13 +17,11 @@ export default function OrdersPage() {
 
   const loadOrders = async () => {
     if (!user) return;
-    try {
-      setLoading(true);
-      const res = await apiCall('/api/user/orders/all');
-      if (res && res.success) {
-        setOrders(res.data);
-      }
-    } catch (err) {
+    setLoading(true);
+    const res = await apiCall('/api/user/orders/all');
+    if (res && res.success) {
+      setOrders(res.data);
+    } else {
       console.warn("Using mock data for offline orders viewer.");
       // Fallback mock orders
       setOrders([
@@ -46,9 +44,8 @@ export default function OrdersPage() {
           email: user.email
         }
       ]);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -66,13 +63,11 @@ export default function OrdersPage() {
     // If already loaded detail, don't load again
     if (expandedDetails[orderId]) return;
 
-    try {
-      setLoadingDetailId(orderId);
-      const res = await apiCall(`/api/user/orders/${orderId}`);
-      if (res && res.success) {
-        setExpandedDetails(prev => ({ ...prev, [orderId]: res.data }));
-      }
-    } catch (err) {
+    setLoadingDetailId(orderId);
+    const res = await apiCall(`/api/user/orders/${orderId}`);
+    if (res && res.success) {
+      setExpandedDetails(prev => ({ ...prev, [orderId]: res.data }));
+    } else {
       console.warn("Using offline mock details expansion.");
       // Offline fallback detail construction
       const mockOrderItems = [
@@ -93,21 +88,18 @@ export default function OrdersPage() {
         ...prev,
         [orderId]: { items: mockOrderItems }
       }));
-    } finally {
-      setLoadingDetailId(null);
     }
+    setLoadingDetailId(null);
   };
 
   const handleCancelOrder = async (orderId) => {
     if (!confirm(`Are you sure you want to cancel order #${orderId}?`)) return;
 
-    try {
-      const res = await apiCall(`/api/user/orders/${orderId}`, { method: 'DELETE' });
-      if (res && res.success) {
-        addNotification(`Order #${orderId} cancelled successfully`, 'success');
-        loadOrders();
-      }
-    } catch (err) {
+    const res = await apiCall(`/api/user/orders/${orderId}`, { method: 'DELETE' });
+    if (res && res.success) {
+      addNotification(`Order #${orderId} cancelled successfully`, 'success');
+      loadOrders();
+    } else {
       // Local fallback for offline simulation
       addNotification(`Offline simulation: Order #${orderId} cancelled.`, 'info');
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'CANCELLED' } : o));

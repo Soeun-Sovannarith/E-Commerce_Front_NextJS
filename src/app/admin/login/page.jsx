@@ -16,14 +16,12 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setError('');
 
-    try {
-      setLoading(true);
-      await adminLogin(email, password);
-    } catch (err) {
-      setError(err.message || 'Authentication failed. Please check admin credentials.');
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const res = await adminLogin(email, password);
+    if (res && !res.success) {
+      setError(res.message || 'Authentication failed. Please check admin credentials.');
     }
+    setLoading(false);
   };
 
   return (
