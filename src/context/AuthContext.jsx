@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 const AuthContext = createContext(null);
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://api.cambo.phonestore.rith.codes').replace(/\/$/, '');
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);

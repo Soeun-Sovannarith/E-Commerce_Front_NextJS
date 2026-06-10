@@ -231,9 +231,9 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
       </Link>
 
       {/* Main product view grid */}
-      <div style={styles.mainGrid}>
+      <div style={styles.mainGrid} className="detail-grid-responsive">
         {/* Left: Product Image */}
-        <div className="glass-panel" style={styles.imageSection}>
+        <div className="glass-panel detail-image-section" style={styles.imageSection}>
           <img 
             src={product.image_url || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600'} 
             alt={product.name}
@@ -334,7 +334,7 @@ export default function ProductDetailsPage({ params: paramsPromise }) {
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Ratings &amp; Reviews</h2>
         </div>
 
-        <div style={styles.reviewsGrid}>
+        <div style={styles.reviewsGrid} className="detail-reviews-grid-responsive">
           {/* Write a Review Block */}
           <div className="glass-panel" style={styles.writeReviewBox}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Write a Review</h3>

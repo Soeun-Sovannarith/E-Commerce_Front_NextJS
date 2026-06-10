@@ -149,12 +149,12 @@ export default function HomePage() {
   return (
     <div className="container" style={{ padding: '2rem 1.5rem', flex: 1 }}>
       {/* Hero Banner */}
-      <section style={styles.hero} className="glass-panel">
+      <section style={styles.hero} className="glass-panel hero-section-responsive">
         <div style={styles.heroContent}>
           <span style={styles.heroBadge}>Welcome to PhoneStore</span>
-          <h1 className="text-gradient" style={styles.heroTitle}>Discover Next-Gen Mobile Power</h1>
-          <p style={styles.heroSubtitle}>Explore cutting-edge flagship models, write reviews, track inventory levels, or pre-order upcoming devices instantly.</p>
-          <div style={styles.heroActions}>
+          <h1 className="text-gradient hero-title-responsive" style={styles.heroTitle}>Discover Next-Gen Mobile Power</h1>
+          <p className="hero-subtitle-responsive" style={styles.heroSubtitle}>Explore cutting-edge flagship models, write reviews, track inventory levels, or pre-order upcoming devices instantly.</p>
+          <div className="hero-actions-responsive" style={styles.heroActions}>
             <a href="#catalog" className="btn btn-primary">Browse Catalog</a>
             {admin ? (
               <Link href="/admin" className="btn btn-secondary">Admin Dashboard</Link>
@@ -165,7 +165,7 @@ export default function HomePage() {
             )}
           </div>
         </div>
-        <div style={styles.heroVisual}>
+        <div style={styles.heroVisual} className="desktop-only">
           <div style={styles.glowingOrb} />
         </div>
       </section>
@@ -203,11 +203,11 @@ export default function HomePage() {
         </div>
 
         {/* Brand Filters */}
-        <div style={styles.brandFilters}>
+        <div style={styles.brandFilters} className="scroll-x">
           <button 
             onClick={() => setSelectedBrand(null)} 
             className={`btn btn-sm ${selectedBrand === null ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderRadius: 'var(--radius-full)' }}
+            style={{ borderRadius: 'var(--radius-full)', display: 'inline-block', marginRight: '0.5rem' }}
           >
             All Brands
           </button>
@@ -216,7 +216,7 @@ export default function HomePage() {
               key={b.id} 
               onClick={() => setSelectedBrand(b.id)} 
               className={`btn btn-sm ${selectedBrand === b.id ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ borderRadius: 'var(--radius-full)' }}
+              style={{ borderRadius: 'var(--radius-full)', display: 'inline-block', marginRight: '0.5rem' }}
             >
               {b.name}
             </button>
@@ -331,7 +331,7 @@ const styles = {
     gap: '2rem',
   },
   heroContent: {
-    flex: '1 1 500px',
+    flex: '1 1 300px',
     zIndex: 2,
   },
   heroBadge: {

@@ -269,11 +269,11 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div style={styles.successActions}>
-            <Link href="/orders" className="btn btn-primary">
+          <div className="flex-responsive" style={{ width: '100%' }}>
+            <Link href="/orders" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
               Track Order Status
             </Link>
-            <Link href="/" className="btn btn-secondary">
+            <Link href="/" className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
               Back to Store
             </Link>
           </div>
@@ -292,7 +292,7 @@ export default function CheckoutPage() {
           <p style={{ color: 'var(--text-muted)', margin: '0.5rem 0 1.5rem 0', maxWidth: '360px' }}>
             You must be logged in as a customer to proceed to secure checkout and make payments.
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
+          <div className="flex-responsive" style={{ width: '100%' }}>
             <Link href="/login" className="btn btn-primary" style={{ flex: 1 }}>
               Sign In
             </Link>
@@ -322,7 +322,7 @@ export default function CheckoutPage() {
     <div className="container" style={{ padding: '2rem 1.5rem', flex: 1 }}>
       <h1 className="text-gradient-primary" style={styles.pageTitle}>Secure Checkout</h1>
 
-      <div style={styles.checkoutGrid}>
+      <div className="checkout-grid">
         {/* Left: Dynamic Step Content */}
         <div style={styles.checkoutForms}>
           {!createdOrder ? (
@@ -388,7 +388,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div style={styles.paymentSelectionGrid}>
+              <div className="payment-selection-grid">
                 {/* KHQR Option Card */}
                 <div 
                   className="glass-card" 

@@ -8,5 +8,5 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=https://api.cambo.phonestore.rith.codes
     restart: always

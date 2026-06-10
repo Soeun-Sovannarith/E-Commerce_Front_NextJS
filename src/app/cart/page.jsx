@@ -39,7 +39,7 @@ export default function CartPage() {
           )}
 
           {cart.map((item) => (
-            <div key={item.id} className="glass-panel" style={styles.cartItem}>
+            <div key={item.id} className="glass-panel cart-item-responsive" style={styles.cartItem}>
               {/* Product Thumbnail */}
               <div style={styles.thumbnailWrapper}>
                 <img 
@@ -64,7 +64,7 @@ export default function CartPage() {
               </div>
 
               {/* Quantity Changer */}
-              <div style={styles.qtyContainer}>
+              <div style={styles.qtyContainer} className="qty-container-responsive">
                 <button 
                   onClick={() => updateQuantity(item.id, item.quantity - 1)}
                   style={styles.qtyBtn}
@@ -83,7 +83,7 @@ export default function CartPage() {
               </div>
 
               {/* Item Subtotal */}
-              <div style={styles.subtotal}>
+              <div style={styles.subtotal} className="subtotal-responsive">
                 ${(item.price * item.quantity).toFixed(2)}
               </div>
 
@@ -91,7 +91,7 @@ export default function CartPage() {
               <button 
                 onClick={() => removeFromCart(item.id)}
                 style={styles.deleteBtn}
-                className="hover-danger-bg"
+                className="hover-danger-bg delete-btn-responsive"
                 title="Remove item"
               >
                 <Trash2 size={18} />
