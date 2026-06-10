@@ -691,7 +691,7 @@ export default function AdminDashboardPage() {
                             value={o.status} 
                             onChange={(e) => handleStatusChange(o.id, e.target.value)}
                             style={{ 
-                              background: 'rgba(4,6,10,0.6)', 
+                              background: 'var(--bg-input)', 
                               border: '1px solid var(--border-color)', 
                               borderRadius: 'var(--radius-sm)', 
                               color: 'var(--text-main)', 
@@ -1159,7 +1159,7 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '0.75rem',
-    background: 'rgba(4,6,10,0.2)',
+    background: 'var(--bg-base)',
     border: '1px solid var(--border-color)',
     borderRadius: 'var(--radius-sm)',
   },
